@@ -1,22 +1,38 @@
 # Toolbay Marketplace
 
-A React marketplace prototype for materials, tools and engineering supplies. It includes a responsive storefront, local demo catalog, and an Express/MongoDB API with Cloudinary-backed product images.
+Toolbay is a responsive Rwanda marketplace for construction materials, tools, and equipment. The React app includes a multi-route buyer catalog, supplier storefronts, saved products, guest and account baskets, manual order requests, seller inventory and order management, and two construction calculators. The Express API stores accounts, stores, products, baskets, and orders in MongoDB; seller listing images upload to Cloudinary.
 
-## Run locally
+## Local setup
 
-1. Install Node.js 20+.
-2. Run `npm install`.
-3. Copy `.env.example` to `.env` and fill in the MongoDB URI and Cloudinary credentials. Keep `.env` private and on the server only.
-4. Start MongoDB access for your Atlas project (allow your current IP and create a database user).
-5. In one terminal run `npm run server`; in another run `npm run dev`.
-6. Open the Vite URL, usually `http://localhost:5173`.
+1. Install Node.js 20 or newer and run `npm install`.
+2. Copy `.env.example` to `.env` in the project root and configure `MONGODB_URI` and a unique `JWT_SECRET` of at least 32 characters. Configure the Cloudinary values to enable seller image uploads. `.env` is ignored by Git.
+3. In MongoDB Atlas, allow the API host's IP and use a database user with access only to the dedicated `toolbay` database. The app does not delete or modify other databases.
+4. Run `npm run server` in one terminal and `npm run dev` in another. Open `http://localhost:5173`.
+5. Use `npm run build` to create the static production bundle.
 
-The frontend currently uses sample listings so the storefront works before the API has catalog data. API routes are available at `/api/health`, `/api/products`, and `/api/products/:id`. Create a product with `multipart/form-data` fields `name`, `description`, `category`, `price`, `unit`, `stock`, `seller[name]`, `seller[location]`, `seller[phone]`, and up to eight `images` files.
+The Vite dev server proxies `/api` to `http://localhost:5000`. For production, place the API behind the same origin or configure `VITE_API_BASE_URL` at frontend build time to the API's public `/api` URL and set `CLIENT_ORIGIN` on the API. Cross-origin cookie sessions need HTTPS and compatible cookie settings at deployment.
 
-## Deployment
+## Product behavior
 
-Deploy the React frontend as a static Vite site and deploy the API as a Node service. Configure the same environment variables on the API host, set `CLIENT_ORIGIN` to the deployed frontend origin, and use a MongoDB Atlas database user restricted to the app's required database. Never expose `CLOUDINARY_API_SECRET` or the MongoDB connection string in browser code. Rotate any credential that has been pasted into a public or shared chat.
+- Without a reachable API, the public catalog falls back to clearly marked sample listings so the browsing experience can be previewed. Accounts, checkout, and seller operations require the configured API and MongoDB.
+- Buyers can keep a basket as a guest. Signing in merges it into the buyer's MongoDB basket. Checkout creates a separate request for every supplier with item price snapshots.
+- Orders remain `requested` with `pending_manual` payment status. Toolbay does not collect payments online; buyer and seller coordinate payment and delivery directly.
+- Seller actions are scoped to the authenticated seller's store. Listing removal is a soft delete.
+- Product image uploads require Cloudinary configuration; credentials stay on the API server.
+- Seller terms and fees are not invented in this app. Direct sellers to Toolbay for current terms.
 
-## Plan
+## Main API routes
 
-See [PLAN.md](./PLAN.md) for the first-release scope and follow-on phases.
+Public: `GET /api/health`, `GET /api/categories`, `GET /api/products`, `GET /api/products/:id`, `GET /api/stores/:slug`.
+
+Accounts: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/logout`.
+
+Buyer: `GET/PUT /api/cart`, `POST /api/cart/merge`, `POST /api/orders`, `GET /api/account/orders`.
+
+Seller: `GET/POST /api/seller/products`, `PATCH/DELETE /api/seller/products/:id`, `GET /api/seller/orders`, `PATCH /api/seller/orders/:id`.
+
+## Security and launch notes
+
+Keep MongoDB, JWT, and Cloudinary secrets in the API host's environment. Rotate any credential that has been pasted into a public or shared chat before production. Use a dedicated MongoDB database user and restrict its access to the Toolbay catalog. Configure SPA fallback on the frontend host so direct navigation and reload work on routes such as `/products/:id` and `/seller/orders`.
+
+The 3D-like homepage vignette is CSS and image based to keep the first-load bundle light; the layout provides an image fallback and avoids motion under reduced-motion preferences. Payment-provider integration, email verification, and production seller verification are later phases.
