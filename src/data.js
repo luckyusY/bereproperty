@@ -7,6 +7,7 @@ export const categories = [
 export const slugify = value => value.toLowerCase().replace(/&/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 export const money = value => `RWF ${new Intl.NumberFormat('en-US').format(value || 0)}`;
 export const imageUrl = (id, width = 760) => id?.startsWith('http') ? id : `https://images.unsplash.com/${id || 'photo-1504307651254-35680f356dfd'}?auto=format&fit=crop&w=${width}&q=82`;
+export const categoryImage = category => `/images/categories/${slugify(category)}.jpg`;
 
 const seeds = [
   ['Makita 18V Cordless Drill Kit','Tools & Equipment',189000,'set',12,'Doxa Automotive & Machinery','Gasabo','photo-1504148455328-c376907d081c'],
@@ -37,7 +38,7 @@ export const demoProducts = seeds.map(([name, category, price, unit, stock, sell
   rating: [4.8, 4.7, 4.9, 4.6][index % 4],
   reviewCount: [28, 19, 42, 14][index % 4],
   description: `Reliable ${category.toLowerCase()} for your next project. Contact the supplier to confirm availability, delivery, and bulk pricing.`,
-  images: [{ url: imageUrl(image), publicId: '' }],
+  images: [{ url: imageUrl(image), publicId: '' }, { url: categoryImage(category), publicId: '' }],
   image: imageUrl(image),
   seller: { name: sellerName, slug: slugify(sellerName), province: 'Kigali City', district, phone: '+250 788 000 000', verified: index % 3 === 0 },
   store: { name: sellerName, slug: slugify(sellerName), province: 'Kigali City', district },
