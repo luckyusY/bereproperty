@@ -300,3 +300,55 @@ body{color:var(--ink);background:#f4f3ed;font-size:1rem;line-height:1.55;-webkit
 .marketplace-search .search-suggestions .search-suggestion{width:100%;height:auto;min-height:58px;margin:0;margin-right:0;padding:8px 11px;border:0;border-radius:9px;background:transparent;color:#25372b;display:flex;box-shadow:none}
 .marketplace-search .search-suggestions .search-suggestion:hover,.marketplace-search .search-suggestions .search-suggestion.is-active{background:#edf2e9;color:#25372b}
 .marketplace-search .search-suggestions .search-suggestion img,.marketplace-search .search-suggestions .suggestion-icon{width:40px;height:40px;flex:none;border-radius:8px}
+
+/* Homepage category picker: clear icons, balanced grid, readable labels. */
+.category-tiles{grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
+.category-tile{min-width:0;min-height:136px;height:auto;padding:17px;display:grid;grid-template-columns:minmax(0,1fr) 22px;grid-template-rows:50px minmax(40px,auto);align-items:center;gap:12px 8px;text-decoration:none}
+.category-icon{grid-column:1;grid-row:1;width:48px;height:48px;display:grid;place-items:center;border-radius:15px;background:linear-gradient(145deg,#f9fbf6,#e7ede3);color:#31543a;box-shadow:inset 2px 2px 5px #172b1a12,inset -2px -2px 5px #fff,2px 3px 7px #172b1a12}
+.category-icon svg{color:#365b3f}
+.category-tile b{grid-column:1;grid-row:2;align-self:center;font-size:15px;line-height:1.25;font-weight:700;color:#203328}
+.category-tile .category-arrow{grid-column:2;grid-row:2;align-self:center;width:20px;height:20px;color:#647764;transition:transform .2s,color .2s}
+.category-tile:hover .category-arrow{transform:translateX(3px);color:#8b5d1b}
+.category-tile:focus-visible{outline:3px solid #bd8741;outline-offset:3px}
+
+/* Product purchase panel and controls. */
+.product-purchase{padding:26px;border:1px solid #d8e0d5;border-radius:18px;background:linear-gradient(145deg,#fff,#f5f7f1);box-shadow:var(--surface-shadow-small)}
+.product-purchase h1{margin:10px 0 12px}
+.product-purchase .detail-price{margin:18px 0;font-size:34px}
+.product-purchase .detail-divider{margin:17px 0}
+.product-purchase .quantity-label{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:19px;font-size:14px;font-weight:700;color:#293c2e}
+.product-purchase .quantity-stepper{flex:none}
+.product-purchase .quantity-stepper button{border-radius:7px;color:#2f4935}
+.product-purchase .quantity-stepper button:disabled{opacity:.42;cursor:not-allowed}
+.product-purchase .quantity-stepper input{text-align:center;font-weight:700;color:#223329}
+.product-purchase .purchase-button{width:100%;margin-top:16px;padding-inline:17px;justify-content:space-between;border-radius:10px}
+.product-purchase .contact-seller{width:100%;margin:10px 0 0;border-radius:9px}
+.mobile-purchase-bar{display:none}
+
+@media(max-width:980px){
+  .category-tiles{grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+}
+@media(max-width:760px){
+  .category-tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+  .category-tile{min-height:124px;padding:14px;grid-template-rows:46px minmax(38px,auto);gap:9px 6px}
+  .category-icon{width:44px;height:44px;border-radius:13px}
+  .category-icon svg{width:23px;height:23px}
+  .category-tile b{font-size:14px}
+  .product-purchase{padding:20px;border-radius:15px}
+  .product-purchase h1{font-size:29px}
+  .product-purchase .detail-price{font-size:28px}
+  .product-purchase .quantity-label{font-size:13px}
+  .mobile-purchase-bar{position:sticky;bottom:0;z-index:7;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;width:calc(100% + 28px);margin:20px -14px 0;padding:11px 14px calc(11px + env(safe-area-inset-bottom));border-top:1px solid #d9e0d7;background:#fffffff2;box-shadow:0 -8px 24px #16281c1a;backdrop-filter:blur(12px)}
+  .mobile-purchase-total{min-width:0;display:flex;flex-direction:column;gap:2px}
+  .mobile-purchase-total small{font-size:11px;color:#5b685e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mobile-purchase-total b{font-size:16px;color:#1b3022}
+  .mobile-purchase-bar>button{min-height:46px;padding:0 14px;border-radius:9px;font-size:13px;white-space:nowrap}
+  .mobile-purchase-status{grid-column:1/-1;font-size:11px;color:#315b3b}
+}
+@media(max-width:420px){
+  .category-tile{min-height:116px;padding:12px;grid-template-rows:42px minmax(38px,auto)}
+  .category-icon{width:40px;height:40px}
+  .category-tile b{font-size:13px}
+  .product-purchase{padding:17px}
+  .mobile-purchase-bar{width:calc(100% + 28px);margin-inline:-14px;padding-inline:14px}
+}
