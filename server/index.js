@@ -118,6 +118,7 @@ app.get('/api/auth/me', auth, async (req, res) => {
 app.get('/api/products', async (req, res) => {
   try {
     const { q, category, sort = 'newest', page = '1', limit = '24', province, district, minPrice, maxPrice } = req.query;
+    const normalizedQuery = typeof q === 'string' ? q.trim().replace(/\s+/g, ' ') : '';
     const filter = { isActive: true };
     if (category && category !== 'All') filter.category = category;
     if (province || district) {
@@ -127,15 +128,15 @@ app.get('/api/products', async (req, res) => {
       filter.store = { $in: await Store.find(storeFilter).distinct('_id') };
     }
     if (minPrice || maxPrice) filter.price = { ...(minPrice ? { $gte: Number(minPrice) } : {}), ...(maxPrice ? { $lte: Number(maxPrice) } : {}) };
-    if (q) {
-      const escapedQuery = String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (normalizedQuery) {
+      const escapedQuery = normalizedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const supplierIds = await Store.find({ name: new RegExp(escapedQuery, 'i'), isActive: true }).distinct('_id');
-      filter.$or = [{ $text: { $search: String(q) } }, { store: { $in: supplierIds } }];
+      filter.$or = [{ $text: { $search: normalizedQuery } }, { store: { $in: supplierIds } }];
     }
     const safeLimit = Math.max(1, Math.min(48, Number(limit) || 24));
     const currentPage = Math.max(1, Number(page) || 1);
     let query = Product.find(filter).populate('store', 'name slug province district phone verified');
-    if (q) query = query.select({ score: { $meta: 'textScore' } }).sort({ score: { $meta: 'textScore' } });
+    if (normalizedQuery) query = query.select({ score: { $meta: 'textScore' } }).sort({ score: { $meta: 'textScore' } });
     else if (sort === 'price-asc') query = query.sort({ price: 1 });
     else if (sort === 'price-desc') query = query.sort({ price: -1 });
     else if (sort === 'rating') query = query.sort({ rating: -1 });
