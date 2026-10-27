@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import 'express-async-errors';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -8,6 +9,8 @@ import jwt from 'jsonwebtoken';
 import { v2 as cloudinary } from 'cloudinary';
 import multer from 'multer';
 import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
+import AdminAudit from './models/AdminAudit.js';
 import Product from './models/Product.js';
 import User from './models/User.js';
 import Store from './models/Store.js';
@@ -18,8 +21,9 @@ dotenv.config();
 const app = express();
 const port = Number(process.env.PORT || 5000);
 const categories = ['Building Materials', 'Cloth', 'Decorations', 'Electrical & Lighting', 'Electronics & Telecom', 'Finishing Materials', 'Furniture & Fixtures', 'Garden & Landscaping', 'HVAC & Ventilation', 'Other', 'Plumbing & Water', 'Tools & Equipment', 'Automotive & Machinery'];
-const clientOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
-const cookieName = 'toolbay_session';
+const clientOrigin = new URL(process.env.CLIENT_ORIGIN || 'http://localhost:5173').origin;
+const cookieName = 'bereproperty_session';
+const legacyCookieName = 'toolbay_session';
 const isCloudinaryReady = Boolean(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
 
 app.use(cors({ origin: clientOrigin, credentials: true }));
@@ -37,24 +41,28 @@ if (isCloudinaryReady) {
 }
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 const uploadImage = buffer => new Promise((resolve, reject) => {
-  cloudinary.uploader.upload_stream({ folder: 'toolbay/products', allowed_formats: ['jpg', 'jpeg', 'png', 'webp'], transformation: [{ width: 1400, height: 1200, crop: 'limit', quality: 'auto' }] }, (error, result) => error ? reject(error) : resolve(result)).end(buffer);
+  cloudinary.uploader.upload_stream({ folder: 'bereproperty/products', allowed_formats: ['jpg', 'jpeg', 'png', 'webp'], transformation: [{ width: 1400, height: 1200, crop: 'limit', quality: 'auto' }] }, (error, result) => error ? reject(error) : resolve(result)).end(buffer);
 });
 
 const publicUser = user => ({ id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone });
 const tokenFor = user => jwt.sign({ sub: user._id.toString(), role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-const setSession = (res, user) => res.cookie(cookieName, tokenFor(user), { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.COOKIE_SAME_SITE || 'lax', maxAge: 7 * 24 * 60 * 60 * 1000, path: '/' });
+const setSession = (res, user) => res.clearCookie(legacyCookieName, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.COOKIE_SAME_SITE || 'lax', path: '/' }).cookie(cookieName, tokenFor(user), { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.COOKIE_SAME_SITE || 'lax', maxAge: 7 * 24 * 60 * 60 * 1000, path: '/' });
 const auth = async (req, res, next) => {
   try {
-    const token = req.cookies[cookieName];
+    const token = req.cookies[cookieName] || req.cookies[legacyCookieName];
     if (!token) return res.status(401).json({ error: 'Sign in is required' });
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(payload.sub);
-    if (!user) return res.status(401).json({ error: 'Session is no longer valid' });
+    if (!user || user.isActive === false) return res.status(401).json({ error: 'This account is unavailable. Contact BereProperty support.' });
     req.user = user;
     next();
   } catch { res.status(401).json({ error: 'Please sign in again' }); }
 };
 const role = expected => (req, res, next) => req.user?.role === expected ? next() : res.status(403).json({ error: `${expected} account required` });
+const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Too many sign-in attempts. Please try again later.' } });
+const adminMutationRateLimit = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Too many administrative changes. Please slow down.' } });
+const adminOnly = [auth, role('admin')];
+const adminOriginCheck = (req, res, next) => req.get('origin') === clientOrigin ? next() : res.status(403).json({ error: 'Administrative changes must come from the BereProperty website.' });
 const sellerStore = async (req, res, next) => {
   const store = await Store.findOne({ owner: req.user._id, isActive: true });
   if (!store) return res.status(404).json({ error: 'Seller store not found' });
@@ -64,16 +72,16 @@ const sellerStore = async (req, res, next) => {
 const productCard = p => ({ ...p, id: p._id, store: p.store, seller: p.store && typeof p.store === 'object' ? { name: p.store.name, slug: p.store.slug, province: p.store.province, district: p.store.district, phone: p.store.phone, verified: p.store.verified } : undefined, image: p.images?.[0]?.url || '' });
 const slugify = value => value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'toolbay-api', database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected', uploads: isCloudinaryReady ? 'configured' : 'not-configured' }));
+app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'bereproperty-api', database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected', uploads: isCloudinaryReady ? 'configured' : 'not-configured' }));
 app.get('/api/categories', (_req, res) => res.json({ items: categories }));
 app.get('/api/products/:id', async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Product not found' });
-  const doc = await Product.findOne({ _id: req.params.id, isActive: true }).populate('store', 'name slug province district phone verified').lean();
-  if (!doc) return res.status(404).json({ error: 'Product not found' });
+  const doc = await Product.findOne({ _id: req.params.id, isActive: true }).populate({ path: 'store', select: 'name slug province district phone verified', match: { isActive: true } }).lean();
+  if (!doc?.store) return res.status(404).json({ error: 'Product not found' });
   res.json(productCard(doc));
 });
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authRateLimit, async (req, res) => {
   try {
     const { name, email, password, role: accountRole, phone = '', store: storeInput } = req.body;
     if (!name || !email || !password || !['buyer', 'seller'].includes(accountRole)) return res.status(400).json({ error: 'Name, email, password, and buyer/seller account type are required' });
@@ -101,28 +109,163 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authRateLimit, async (req, res) => {
   const email = String(req.body.email || '').toLowerCase().trim();
   const user = await User.findOne({ email });
-  if (!user || !(await bcrypt.compare(String(req.body.password || ''), user.passwordHash))) return res.status(401).json({ error: 'Email or password is incorrect' });
+  if (!user || user.isActive === false || !(await bcrypt.compare(String(req.body.password || ''), user.passwordHash))) return res.status(401).json({ error: 'Email or password is incorrect' });
   const store = user.role === 'seller' ? await Store.findOne({ owner: user._id }).lean() : null;
   setSession(res, user);
   res.json({ user: publicUser(user), store });
 });
-app.post('/api/auth/logout', (_req, res) => res.clearCookie(cookieName, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.COOKIE_SAME_SITE || 'lax', path: '/' }).json({ ok: true }));
+app.post('/api/auth/logout', (_req, res) => res.clearCookie(cookieName, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.COOKIE_SAME_SITE || 'lax', path: '/' }).clearCookie(legacyCookieName, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.COOKIE_SAME_SITE || 'lax', path: '/' }).json({ ok: true }));
 app.get('/api/auth/me', auth, async (req, res) => {
   const store = req.user.role === 'seller' ? await Store.findOne({ owner: req.user._id }).lean() : null;
   res.json({ user: publicUser(req.user), store });
+});
+
+const safeRegex = value => new RegExp(String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+const pageParams = req => ({ page: Math.max(1, Number(req.query.page) || 1), limit: Math.max(1, Math.min(50, Number(req.query.limit) || 25)) });
+async function auditedChange({ actor, action, targetType, targetId, summary, changes, mutate }) {
+  const session = await mongoose.startSession();
+  let result;
+  try {
+    await session.withTransaction(async () => {
+      const model = { user: User, store: Store, product: Product, order: Order }[targetType];
+      const original = await model.findById(targetId).session(session).lean();
+      result = await mutate(session);
+      const fieldMap = Object.fromEntries(Object.keys(changes).map(key => [key, key === 'status' && targetType === 'user' ? 'isActive' : key]));
+      const before = Object.fromEntries(Object.entries(fieldMap).map(([key, field]) => [key, original?.[field] ?? null]));
+      await AdminAudit.create([{ actor: actor._id, action, targetType, targetId, summary, changes: { before, after: changes } }], { session });
+    });
+    return result;
+  } finally { await session.endSession(); }
+}
+const adminError = (res, error, fallback) => res.status(error.status || 500).json({ error: error.message || fallback });
+const notFound = (message = 'Record not found') => Object.assign(new Error(message), { status: 404 });
+
+app.get('/api/admin/overview', ...adminOnly, async (_req, res) => {
+  try {
+    const [users, suspendedUsers, stores, unverifiedStores, listings, hiddenListings, orders, requestedOrders] = await Promise.all([
+      User.countDocuments(), User.countDocuments({ isActive: false }), Store.countDocuments(), Store.countDocuments({ verified: false }),
+      Product.countDocuments(), Product.countDocuments({ isActive: false }), Order.countDocuments(), Order.countDocuments({ status: 'requested' }),
+    ]);
+    res.json({ users, suspendedUsers, stores, unverifiedStores, listings, hiddenListings, orders, requestedOrders });
+  } catch (error) { adminError(res, error, 'Could not load admin overview'); }
+});
+app.get('/api/admin/users', ...adminOnly, async (req, res) => {
+  try {
+    const { page, limit } = pageParams(req); const filter = {};
+    if (req.query.status === 'active') filter.isActive = { $ne: false };
+    if (req.query.status === 'suspended') filter.isActive = false;
+    if (['buyer', 'seller', 'admin'].includes(req.query.role)) filter.role = req.query.role;
+    if (req.query.q) { const match = safeRegex(req.query.q); filter.$or = [{ name: match }, { email: match }, { phone: match }]; }
+    const [items, total] = await Promise.all([User.find(filter).select('name email role phone isActive createdAt').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), User.countDocuments(filter)]);
+    res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) });
+  } catch (error) { adminError(res, error, 'Could not load users'); }
+});
+app.patch('/api/admin/users/:id/status', ...adminOnly, adminOriginCheck, adminMutationRateLimit, async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) throw notFound('User not found');
+    if (!['active', 'suspended'].includes(req.body.status)) return res.status(400).json({ error: 'Choose active or suspended status' });
+    if (String(req.user._id) === req.params.id) return res.status(400).json({ error: 'You cannot suspend your own admin account' });
+    const result = await auditedChange({ actor: req.user, action: 'user.status', targetType: 'user', targetId: req.params.id, summary: `Changed user status to ${req.body.status}`, changes: { status: req.body.status }, mutate: async session => {
+      const user = await User.findById(req.params.id).session(session);
+      if (!user || user.role === 'admin') throw notFound('User not found or cannot be moderated');
+      user.isActive = req.body.status === 'active'; await user.save({ session });
+      return { id: user._id, name: user.name, email: user.email, role: user.role, isActive: user.isActive };
+    } });
+    res.json({ user: result });
+  } catch (error) { adminError(res, error, 'Could not update user status'); }
+});
+app.get('/api/admin/stores', ...adminOnly, async (req, res) => {
+  try {
+    const { page, limit } = pageParams(req); const filter = {};
+    if (req.query.status === 'active') filter.isActive = true;
+    if (req.query.status === 'inactive') filter.isActive = false;
+    if (req.query.status === 'unverified') filter.verified = false;
+    if (req.query.q) filter.$or = [{ name: safeRegex(req.query.q) }, { province: safeRegex(req.query.q) }, { district: safeRegex(req.query.q) }];
+    const [items, total] = await Promise.all([Store.find(filter).populate('owner', 'name email isActive').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), Store.countDocuments(filter)]);
+    res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) });
+  } catch (error) { adminError(res, error, 'Could not load stores'); }
+});
+app.patch('/api/admin/stores/:id/moderation', ...adminOnly, adminOriginCheck, adminMutationRateLimit, async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) throw notFound('Store not found');
+    const changes = {};
+    for (const key of ['isActive', 'verified']) if (typeof req.body[key] === 'boolean') changes[key] = req.body[key];
+    if (!Object.keys(changes).length) return res.status(400).json({ error: 'Provide verified and/or isActive as a boolean' });
+    const store = await auditedChange({ actor: req.user, action: 'store.moderation', targetType: 'store', targetId: req.params.id, summary: 'Updated store verification or availability', changes, mutate: session => Store.findByIdAndUpdate(req.params.id, changes, { new: true, runValidators: true, session }).lean().then(value => value || Promise.reject(notFound('Store not found'))) });
+    res.json({ store });
+  } catch (error) { adminError(res, error, 'Could not update store'); }
+});
+app.get('/api/admin/products', ...adminOnly, async (req, res) => {
+  try {
+    const { page, limit } = pageParams(req); const filter = {};
+    if (req.query.status === 'active') filter.isActive = true;
+    if (req.query.status === 'hidden') filter.isActive = false;
+    if (req.query.category && categories.includes(req.query.category)) filter.category = req.query.category;
+    if (req.query.q) {
+      const match = safeRegex(req.query.q); const stores = await Store.find({ name: match }).distinct('_id');
+      filter.$or = [{ name: match }, { description: match }, { store: { $in: stores } }];
+    }
+    const [items, total] = await Promise.all([Product.find(filter).populate('store', 'name slug isActive').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), Product.countDocuments(filter)]);
+    res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) });
+  } catch (error) { adminError(res, error, 'Could not load listings'); }
+});
+app.patch('/api/admin/products/:id/moderation', ...adminOnly, adminOriginCheck, adminMutationRateLimit, async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) throw notFound('Listing not found');
+    if (typeof req.body.isActive !== 'boolean') return res.status(400).json({ error: 'Provide isActive as a boolean' });
+    const product = await auditedChange({ actor: req.user, action: 'product.moderation', targetType: 'product', targetId: req.params.id, summary: req.body.isActive ? 'Restored listing' : 'Hid listing', changes: { isActive: req.body.isActive }, mutate: session => Product.findByIdAndUpdate(req.params.id, { isActive: req.body.isActive }, { new: true, runValidators: true, session }).lean().then(value => value || Promise.reject(notFound('Listing not found'))) });
+    res.json({ product });
+  } catch (error) { adminError(res, error, 'Could not update listing'); }
+});
+app.get('/api/admin/orders', ...adminOnly, async (req, res) => {
+  try {
+    const { page, limit } = pageParams(req); const filter = {};
+    if (['requested', 'accepted', 'rejected'].includes(req.query.status)) filter.status = req.query.status;
+    if (req.query.q) filter.orderNumber = safeRegex(req.query.q);
+    const [items, total] = await Promise.all([Order.find(filter).populate('buyer', 'name email phone').populate('store', 'name slug province district').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), Order.countDocuments(filter)]);
+    res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) });
+  } catch (error) { adminError(res, error, 'Could not load orders'); }
+});
+app.patch('/api/admin/orders/:id/status', ...adminOnly, adminOriginCheck, adminMutationRateLimit, async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) throw notFound('Order not found');
+    if (!['accepted', 'rejected'].includes(req.body.status)) return res.status(400).json({ error: 'Order status must be accepted or rejected' });
+    const order = await auditedChange({ actor: req.user, action: 'order.status', targetType: 'order', targetId: req.params.id, summary: `Admin changed order status to ${req.body.status}`, changes: { status: req.body.status }, mutate: async session => {
+      const current = await Order.findById(req.params.id).session(session);
+      if (!current || current.status !== 'requested') throw Object.assign(new Error('Only requested orders can be updated'), { status: 409 });
+      if (req.body.status === 'accepted') for (const item of current.items) {
+        const update = await Product.updateOne({ _id: item.product, store: current.store, isActive: true, stock: { $gte: item.quantity } }, { $inc: { stock: -item.quantity } }, { session });
+        if (!update.modifiedCount) throw Object.assign(new Error(`${item.name} no longer has enough stock`), { status: 409 });
+      }
+      current.status = req.body.status; await current.save({ session }); return current.toObject();
+    } });
+    res.json({ order });
+  } catch (error) { adminError(res, error, 'Could not update order'); }
+});
+app.get('/api/admin/audit', ...adminOnly, async (req, res) => {
+  try {
+    const { page, limit } = pageParams(req); const filter = {};
+    if (req.query.type && ['user', 'store', 'product', 'order'].includes(req.query.type)) filter.targetType = req.query.type;
+    if (req.query.q) {
+      const match = safeRegex(req.query.q); const actors = await User.find({ $or: [{ name: match }, { email: match }] }).distinct('_id');
+      filter.$or = [{ action: match }, { summary: match }, { targetType: match }, { actor: { $in: actors } }];
+    }
+    const [items, total] = await Promise.all([AdminAudit.find(filter).populate('actor', 'name email').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(), AdminAudit.countDocuments(filter)]);
+    res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)) });
+  } catch (error) { adminError(res, error, 'Could not load admin activity'); }
 });
 
 app.get('/api/products', async (req, res) => {
   try {
     const { q, category, sort = 'newest', page = '1', limit = '24', province, district, minPrice, maxPrice } = req.query;
     const normalizedQuery = typeof q === 'string' ? q.trim().replace(/\s+/g, ' ') : '';
-    const filter = { isActive: true };
+  const filter = { isActive: true, store: { $in: await Store.find({ isActive: true }).distinct('_id') } };
     if (category && category !== 'All') filter.category = category;
     if (province || district) {
-      const storeFilter = {};
+      const storeFilter = { isActive: true };
       if (province) storeFilter.province = province;
       if (district) storeFilter.district = new RegExp(`^${String(district).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
       filter.store = { $in: await Store.find(storeFilter).distinct('_id') };
@@ -281,7 +424,9 @@ app.patch('/api/seller/orders/:id', auth, role('seller'), sellerStore, async (re
 
 app.use((error, _req, res, _next) => {
   if (error instanceof multer.MulterError) return res.status(400).json({ error: error.code === 'LIMIT_FILE_SIZE' ? 'Each image must be 8 MB or smaller' : error.message });
-  res.status(500).json({ error: 'Unexpected server error' });
+  const status = Number(error.status || error.statusCode) || 500;
+  if (status >= 500) console.error('API request failed:', error.message);
+  res.status(status >= 400 && status < 600 ? status : 500).json({ error: status < 500 ? error.message : 'Unexpected server error' });
 });
 
 if (!process.env.MONGODB_URI || !process.env.JWT_SECRET) {
@@ -289,8 +434,12 @@ if (!process.env.MONGODB_URI || !process.env.JWT_SECRET) {
   process.exit(1);
 }
 mongoose.connect(process.env.MONGODB_URI).then(() => {
+  if (mongoose.connection.name !== 'bereproperty') {
+    console.error(`MONGODB_URI must select the bereproperty database (received ${mongoose.connection.name}).`);
+    process.exit(1);
+  }
   console.log('MongoDB connected');
-  app.listen(port, () => console.log(`Toolbay API listening on ${port}`));
+app.listen(port, () => console.log(`BereProperty API listening on ${port}`));
 }).catch(error => {
   console.error('MongoDB connection failed:', error.message);
   process.exit(1);

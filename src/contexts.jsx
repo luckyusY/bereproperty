@@ -3,7 +3,8 @@ import { api, toCartItems } from './api';
 
 const AuthContext = createContext(null);
 const CartContext = createContext(null);
-const GUEST_CART_KEY = 'toolbay-guest-cart-v2';
+const GUEST_CART_KEY = 'bereproperty-guest-cart-v2';
+const LEGACY_GUEST_CART_KEY = 'toolbay-guest-cart-v2';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -20,7 +21,14 @@ export function AuthProvider({ children }) {
 export const useAuth = () => useContext(AuthContext);
 
 function readGuest() {
-  try { return JSON.parse(localStorage.getItem(GUEST_CART_KEY) || '[]'); } catch { return []; }
+  try {
+    let value = localStorage.getItem(GUEST_CART_KEY);
+    if (value === null) {
+      value = localStorage.getItem(LEGACY_GUEST_CART_KEY);
+      if (value !== null) { localStorage.setItem(GUEST_CART_KEY, value); localStorage.removeItem(LEGACY_GUEST_CART_KEY); }
+    }
+    return JSON.parse(value || '[]');
+  } catch { return []; }
 }
 
 export function CartProvider({ children }) {
@@ -44,7 +52,7 @@ export function CartProvider({ children }) {
         .then(data => { if (active) { syncedUser.current = user.id; setItems(toCartItems(data.items)); setAccountCartReady(true); } })
         .catch(() => { if (active) { if (mergeItems.length) localStorage.setItem(GUEST_CART_KEY, JSON.stringify(mergeItems)); setAccountCartReady(true); } });
     } else {
-      if (user?.role === 'seller') { setItems([]); syncedUser.current = null; }
+      if (user?.role === 'seller' || user?.role === 'admin') { setItems([]); syncedUser.current = null; }
       if (!user) syncedUser.current = null;
       setAccountCartReady(true);
     }
