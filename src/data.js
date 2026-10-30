@@ -6,41 +6,56 @@ export const categories = [
 
 export const slugify = value => value.toLowerCase().replace(/&/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 export const money = value => `RWF ${new Intl.NumberFormat('en-US').format(value || 0)}`;
-export const imageUrl = (id, width = 760) => id?.startsWith('http') ? id : `https://images.unsplash.com/${id || 'photo-1504307651254-35680f356dfd'}?auto=format&fit=crop&w=${width}&q=82`;
+export const imageUrl = (id, width = 760) => id?.startsWith('http') || id?.startsWith('/') ? id : `https://images.unsplash.com/${id || 'photo-1504307651254-35680f356dfd'}?auto=format&fit=crop&w=${width}&q=82`;
 export const categoryImage = category => `/images/categories/${slugify(category)}.jpg`;
+export const whatsappUrl = (phone, text) => `https://wa.me/${String(phone || '').replace(/\D/g, '')}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
 
+const bere = { name: 'Bere 1', slug: 'bere-1', phone: '+250 780 675 812', verified: false };
+const sofaNote = 'Seven-seat sofa set. Call or WhatsApp Bere 1 to confirm the set layout, fabric and delivery.';
+
+// Sample listings supplied by Bere 1 (photos in public/images/products). Stock counts are placeholders and
+// ratings stay empty until buyers leave reviews. `focus` is the object-position used when a photo is cropped.
 const seeds = [
-  ['Makita 18V Cordless Drill Kit','Tools & Equipment',189000,'set',12,'Doxa Automotive & Machinery','Gasabo','photo-1504148455328-c376907d081c'],
-  ['Portland Cement — 50 kg','Building Materials',12500,'bag',240,'BuildRight Rwanda','Kicukiro','photo-1513467655676-561b7d489a88'],
-  ['Heavy Duty Wheelbarrow','Tools & Equipment',68000,'piece',8,'Kigali Hardware Hub','Nyarugenge','photo-1581578731548-c64695cc6952'],
-  ['LED Panel Light 40W','Electrical & Lighting',24500,'piece',56,'Volt House Rwanda','Remera','photo-1507473885765-e6ed057f782c'],
-  ['Premium Ceramic Floor Tiles','Finishing Materials',18500,'m²',90,'ESE Design & Build','Kimihurura','photo-1600607687939-ce8a6c25118c'],
-  ['Submersible Water Pump 1HP','Plumbing & Water',215000,'piece',6,'AquaFlow Supplies','Gikondo','photo-1518770660439-4636190af475'],
-  ['Angle Grinder 900W','Tools & Equipment',79000,'piece',23,'Doxa Automotive & Machinery','Gasabo','photo-1530124566582-a618bc2615dc'],
-  ['Modern Pendant Light','Electrical & Lighting',96000,'piece',14,'Volt House Rwanda','Remera','photo-1507473885765-e6ed057f782c'],
-  ['Workwear Cotton Twill','Cloth',18000,'meter',74,'Kigali Textile House','Nyarugenge','photo-1523381210434-271e8be1f52b'],
-  ['Concrete Garden Planter','Decorations',45000,'piece',10,'Beta Garden Rwanda','Gasabo','photo-1490312278390-ab64016e0aa9'],
-  ['PTZ Wi-Fi Security Camera','Electronics & Telecom',85000,'piece',18,'VI Connect Services','Nyarugenge','photo-1557324232-b8917d3c3dcb'],
-  ['Oak Interior Door','Furniture & Fixtures',165000,'piece',9,'Kigali Joinery','Kicukiro','photo-1505693416388-ac5ce068fe85'],
-  ['Garden Hose 30 m','Garden & Landscaping',28000,'roll',32,'Green Yard Supplies','Gasabo','photo-1416879595882-3373a0480b5b'],
-  ['Split Air Conditioner 12000 BTU','HVAC & Ventilation',990000,'set',4,'Doxa Automotive & Machinery','Gasabo','photo-1631545806609-14e5a3f3bd02'],
-  ['Labeling Paper Roll','Other',12000,'roll',30,'Toolbox Kigali','Gasabo','photo-1586953208448-b95a79798f07'],
+  { id: 'bere-bed', name: 'Upholstered Bed — 1.6 m × 2 m', price: 250000, meta: '1.6 m × 2 m', photos: ['bed-upholstered'], focus: '50% 64%',
+    description: 'Bed, 1.6 m × 2 m, with a panelled upholstered headboard and footboard. Call or WhatsApp Bere 1 to confirm fabric colour and delivery.',
+    specs: [['Bed size', '1.6 m × 2 m']] },
+  { id: 'bere-office-table', name: 'Office Table', price: 150000, meta: '1.20 × 0.60 × 0.80 m', photos: ['office-table'], focus: '50% 55%',
+    description: 'Office table with a three-drawer pedestal. Call or WhatsApp Bere 1 to confirm finish and delivery.',
+    specs: [['Length', '1.20 m'], ['Width', '0.60 m'], ['Height', '0.80 m']] },
+  { id: 'bere-tv-stand', name: 'TV Stand', price: 150000, meta: 'Shelves · 2 drawers', photos: ['tv-stand'], focus: '40% 62%',
+    description: 'TV stand with a tall shelving side, an open media shelf and two drawers. Call or WhatsApp Bere 1 to confirm size and delivery.',
+    specs: [] },
+  { id: 'bere-gas-stand', name: 'Gas Stand Cabinet', price: 110000, meta: '1.20 × 0.40 × 0.80 m', photos: ['gas-stand-cabinet', 'gas-stand-cooker'], focus: '45% 55%',
+    description: 'Kitchen gas stand cabinet (akabati ka gas). Call or WhatsApp Bere 1 to confirm finish and delivery.',
+    specs: [['Length', '1.20 m'], ['Width', '0.40 m'], ['Height', '0.80 m']] },
+  { id: 'bere-sofa-black', name: '7-Seater Sofa Set — Black', price: 700000, meta: '7 seats · Black', photos: ['sofa-black'], focus: '50% 55%', description: sofaNote, specs: [['Seats', '7'], ['Colour', 'Black']] },
+  { id: 'bere-sofa-blue', name: '7-Seater Sofa Set — Blue', price: 600000, meta: '7 seats · Blue', photos: ['sofa-blue'], focus: '50% 55%', description: sofaNote, specs: [['Seats', '7'], ['Colour', 'Blue']] },
+  { id: 'bere-sofa-brown', name: '7-Seater Sofa Set — Brown', price: 600000, meta: '7 seats · Brown', photos: ['sofa-brown'], focus: '50% 60%', description: sofaNote, specs: [['Seats', '7'], ['Colour', 'Brown']] },
+  { id: 'bere-sofa-green', name: '7-Seater Sofa Set — Green', price: 700000, meta: '7 seats · Green', photos: ['sofa-green'], focus: '50% 55%', description: sofaNote, specs: [['Seats', '7'], ['Colour', 'Green']] },
+  { id: 'bere-sofa-white', name: '7-Seater Sofa Set — White', price: 1000000, meta: '7 seats · White', photos: ['sofa-white'], focus: '50% 52%', description: sofaNote, specs: [['Seats', '7'], ['Colour', 'White']] },
+  { id: 'bere-wardrobe-brown', name: 'Wardrobe — Brown', price: 400000, meta: '1.8 × 0.60 × 2 m', photos: ['wardrobe-brown'], focus: '50% 40%',
+    description: 'Three-door wardrobe with a centre mirror, two drawers and key locks. Call or WhatsApp Bere 1 to confirm finish and delivery.',
+    specs: [['Size', '1.8 m × 0.60 m × 2 m'], ['Colour', 'Brown']] },
+  { id: 'bere-wardrobe-white', name: 'Wardrobe — White', price: 400000, meta: '1.8 × 0.60 × 2 m', photos: ['wardrobe-white'], focus: '50% 38%',
+    description: 'Wardrobe with a mirrored door, two drawers and black handles. Call or WhatsApp Bere 1 to confirm finish and delivery.',
+    specs: [['Size', '1.8 m × 0.60 m × 2 m'], ['Colour', 'White']] },
 ];
 
-export const demoProducts = seeds.map(([name, category, price, unit, stock, sellerName, district, image], index) => ({
-  id: `demo-${index + 1}`,
-  name,
-  category,
-  price,
-  currency: 'RWF',
-  unit,
-  stock,
-  rating: [4.8, 4.7, 4.9, 4.6][index % 4],
-  reviewCount: [28, 19, 42, 14][index % 4],
-  description: `Reliable ${category.toLowerCase()} for your next project. Contact the supplier to confirm availability, delivery, and bulk pricing.`,
-  images: [{ url: imageUrl(image), publicId: '' }, { url: categoryImage(category), publicId: '' }],
-  image: imageUrl(image),
-  seller: { name: sellerName, slug: slugify(sellerName), province: 'Kigali City', district, phone: '+250 788 000 000', verified: index % 3 === 0 },
-  store: { name: sellerName, slug: slugify(sellerName), province: 'Kigali City', district },
-  refundPolicy: 'Contact seller for return terms',
-}));
+export const demoProducts = seeds.map(({ photos, focus, ...item }) => {
+  const urls = photos.map(file => `/images/products/${file}.jpg`);
+  return {
+    category: 'Furniture & Fixtures',
+    currency: 'RWF',
+    unit: 'piece',
+    stock: 10,
+    rating: 0,
+    reviewCount: 0,
+    images: urls.map(url => ({ url, publicId: '' })),
+    image: urls[0],
+    imageFocus: focus,
+    seller: { ...bere },
+    store: { ...bere },
+    refundPolicy: 'Contact seller for return terms',
+    ...item,
+  };
+});

@@ -527,3 +527,43 @@ body{color:var(--ink);background:#f4f3ed;font-size:1rem;line-height:1.55;-webkit
 .admin-main .eyebrow-muted{color:#718173}
 @media(max-width:1100px){.brand{font-size:18px}.nav-main{gap:12px}}
 @media(max-width:760px){.brand{font-size:17px}}
+
+/* Iteration 3: photo-led product cards, Bere 1 sample catalogue, WhatsApp contact, calmer notices. */
+:where(a,button,input,select,textarea):focus-visible{outline:3px solid #bb843e;outline-offset:2px}
+.product-visual{height:auto;aspect-ratio:4/3.45}
+.product-list .product-visual{aspect-ratio:auto;height:100%;min-height:190px}
+.skeleton-image{height:auto;aspect-ratio:4/3.45}
+.product-visual img{background:#e9ebe4}
+.product-meta{display:block;margin-top:3px;color:#59675e;font-size:13px;line-height:1.4}
+.product-price{letter-spacing:-.3px}
+.preview-notice{margin-block:18px 0;padding:10px 14px;border:1px solid #e6d0a9;border-radius:10px;background:#fbf2e0;color:#563c13;font-size:13px;line-height:1.5}
+.preview-notice svg{flex:none;color:#9a6a1f}
+.button-whatsapp{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:52px;padding:0 18px;border:1px solid #17693a;border-radius:9px;background:#1b7f45;color:#fff;font-size:15px;font-weight:700;text-decoration:none;box-shadow:0 4px 10px #12351f33;transition:background .15s,transform .15s}
+.button-whatsapp:hover{background:#176d3b}
+.button-whatsapp:active{transform:translateY(1px)}
+.empty-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:6px}
+.empty-results .empty-actions .button-dark{margin-top:0}
+.category-tile-cta{grid-column:span 2;flex-direction:column;align-items:flex-start;justify-content:space-between;padding:18px 17px;border-color:#183223;background:radial-gradient(circle at 88% 12%,#f0ad4f3d,transparent 46%),linear-gradient(135deg,#183223,#2a5037)}
+.category-tile-cta>svg:first-child{width:22px;height:22px;color:#f3be72}
+.category-tile-cta b{padding:0;max-width:calc(100% - 34px);font-size:17px;line-height:1.25;text-shadow:none}
+.category-tile-cta b small{display:block;margin-top:4px;color:#dbe6d9;font-size:13px;font-weight:500}
+@media(max-width:650px){.category-tiles>.category-tile:nth-last-child(2){grid-column:span 2}}
+/* Header: keep the logo, search and account actions inside the page shell on laptop widths. */
+@media(min-width:1051px){
+  .nav-main{gap:clamp(14px,1.6vw,28px)}
+  .nav-main>.brand,.nav-main>.primary-nav,.nav-main>.nav-actions{flex:none}
+  .nav-main>.nav-search{flex:1 1 220px;width:auto;min-width:150px;max-width:440px}
+  .primary-nav{gap:clamp(12px,1.4vw,22px)}
+}
+@media(min-width:1051px) and (max-width:1180px){
+  .nav-cart span{display:none}
+  .nav-search select,.nav-search .search-divider{display:none}
+}
+@media(min-width:901px) and (max-width:1050px){
+  .nav-main{gap:14px}
+  .nav-main>.brand,.nav-main>.primary-nav,.nav-main>.nav-actions{flex:none}
+  .nav-main>.nav-search{flex:1 1 120px;width:auto;min-width:110px}
+  .primary-nav{gap:12px}
+  .nav-account span{display:none}
+  .nav-search select,.nav-search .search-divider{display:none}
+}
